@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Nihongo Ludo: Waktu &amp; Kana (2–4 Pemain)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Plus Jakarta Sans & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;700;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --font-ui: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --font-jp: 'Noto Sans JP', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100dvh;
+      overflow-x: hidden;
+      overflow-y: auto;
+      font-family: var(--font-ui);
+      background: radial-gradient(circle at 20% 20%, #f0f9ff 0%, #e0f2fe 45%, #fef3c7 100%);
+      color: #1e293b;
+    }
+
+    .font-jp {
+      font-family: var(--font-jp);
+    }
+
+    /* Portrait Orientation Reminder Banner */
+    #portrait-banner {
+      display: none;
+    }
+    @media (orientation: portrait) and (max-width: 900px) {
+      #portrait-banner {
+        display: flex;
+      }
+    }
+
+    /* Board Container Sizing for Mobile Landscape & Desktop */
+    .ludo-board-wrapper {
+      width: min(88dvh, 54vw);
+      height: min(88dvh, 54vw);
+      max-width: 640px;
+      max-height: 640px;
+    }
+
+    @media (orientation: portrait) {
+      .ludo-board-wrapper {
+        width: min(92vw, 56dvh);
+        height: min(92vw, 56dvh);
+      }
+    }
+
+    /* Hybrid Pseudo-Fullscreen Fallback */
+    body.pseudo-fullscreen {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      z-index: 9999;
+      overflow-y: auto;
+    }
+
+    /* 3D Dice Styling & Animation */
+    .dice-btn {
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+    }
+    .dice-btn:active:not(:disabled) {
+      transform: scale(0.92);
+    }
+    @keyframes diceShake {
+      0% { transform: rotate(0deg) scale(1); }
+      20% { transform: rotate(-18deg) scale(1.12); }
+      40% { transform: rotate(16deg) scale(1.15); }
+      60% { transform: rotate(-14deg) scale(1.12); }
+      80% { transform: rotate(12deg) scale(1.08); }
+      100% { transform: rotate(0deg) scale(1); }
+    }
+    .dice-rolling {
+      animation: diceShake 0.48s ease-in-out infinite;
+    }
+
+    /* Pawn Token Animations */
+    .pawn-token {
+      transition: left 0.22s cubic-bezier(0.22, 1, 0.36, 1), top 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s ease;
+      transform: translate(-50%, -50%);
+    }
+    @keyframes pawnPulse {
+      0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.95));
+      }
+      50% {
+        transform: translate(-50%, -62%) scale(1.2);
+        filter: drop-shadow(0 0 14px rgba(250, 204, 21, 1));
+      }
+    }
+    .pawn-movable {
+      animation: pawnPulse 0.9s infinite ease-in-out;
+      cursor: pointer;
+      z-index: 30 !important;
+    }
+
+    /* Destination Target Ring Animation */
+    @keyframes targetRing {
+      0%, 100% { transform: translate(-50%, -50%) scale(0.82); opacity: 0.9; }
+      50% { transform: translate(-50%, -50%) scale(1.12); opacity: 0.45; }
+    }
+    .target-highlight {
+      transform: translate(-50%, -50%);
+      animation: targetRing 1s infinite ease-in-out;
+      pointer-events: none;
+    }
+
+    /* Subtle Modal Pop-in */
+    @keyframes modalPop {
+      0% { opacity: 0; transform: scale(0.92) translateY(10px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-animate {
+      animation: modalPop 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Custom Scrollbar for Modals */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.5);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="flex flex-col justify-between">
+
+  <!-- Portrait Orientation Gentle Reminder -->
+  <div id="portrait-banner" class="w-full bg-amber-500 text-white text-xs sm:text-sm font-bold px-3 py-2 items-center justify-center gap-2 shadow-md z-40">
+    <span>🔄 Putar HP ke posisi <u>Landscape (miring)</u> untuk bermain lebih lega bersama teman!</span>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 1. SETUP SCREEN MODAL (2–4 PEMAIN & MODE CEPAT VS NORMAL)             -->
+  <!-- ===================================================================== -->
+  <div id="setup-screen" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/65 backdrop-blur-sm overflow-y-auto">
+    <div class="modal-animate w-full max-w-2xl bg-white rounded-3xl shadow-2xl border-2 border-sky-100 overflow-hidden my-auto">
+      <!-- Header Banner -->
+      <div class="bg-gradient-to-r from-rose-500 via-amber-500 to-sky-500 px-5 py-3.5 text-white flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-2xl shadow-inner">🎲</div>
+          <div>
+            <h1 class="text-lg sm:text-xl font-extrabold tracking-tight leading-tight">NIHONGO LUDO: WAKTU &amp; KANA</h1>
+            <p class="text-xs text-white/90 font-medium">Bahasa Jepang Kelas XI • Hari, Tanggal, Bulan &amp; Huruf Kana</p>
+          </div>
+        </div>
+        <span class="hidden sm:inline-flex items-center px-3 py-1 rounded-full bg-white/20 text-xs font-bold font-jp">日本語ルドー</span>
+      </div>
+
+      <!-- Setup Body -->
+      <div class="p-4 sm:p-5 space-y-4">
+        <!-- Step 1: Number of Players -->
+        <div>
+          <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-2">1. Pilih Jumlah Pemain (Tanpa Ketik Nama)</label>
+          <div class="grid grid-cols-3 gap-2.5">
+            <button type="button" onclick="selectPlayerCount(2)" id="btn-p-2" class="player-count-btn p-2.5 sm:p-3 rounded-2xl border-2 border-sky-500 bg-sky-50 text-sky-900 font-bold text-left transition shadow-sm">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-sm sm:text-base font-extrabold">2 Pemain</span>
+                <div class="flex -space-x-1">
+                  <span class="w-3.5 h-3.5 rounded-full bg-rose-500 ring-2 ring-white"></span>
+                  <span class="w-3.5 h-3.5 rounded-full bg-sky-500 ring-2 ring-white"></span>
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-600">Merah vs Biru</p>
+            </button>
+
+            <button type="button" onclick="selectPlayerCount(3)" id="btn-p-3" class="player-count-btn p-2.5 sm:p-3 rounded-2xl border-2 border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-bold text-left transition">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-sm sm:text-base font-extrabold">3 Pemain</span>
+                <div class="flex -space-x-1">
+                  <span class="w-3.5 h-3.5 rounded-full bg-rose-500 ring-2 ring-white"></span>
+                  <span class="w-3.5 h-3.5 rounded-full bg-sky-500 ring-2 ring-white"></span>
+                  <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-white"></span>
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-500">Merah • Biru • Hijau</p>
+            </button>
+
+            <button type="button" onclick="selectPlayerCount(4)" id="btn-p-4" class="player-count-btn p-2.5 sm:p-3 rounded-2xl border-2 border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-bold text-left transition">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-sm sm:text-base font-extrabold">4 Pemain</span>
+                <div class="flex -space-x-1">
+                  <span class="w-3.5 h-3.5 rounded-full bg-rose-500 ring-2 ring-white"></span>
+                  <span class="w-3.5 h-3.5 rounded-full bg-sky-500 ring-2 ring-white"></span>
+                  <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-white"></span>
+                  <span class="w-3.5 h-3.5 rounded-full bg-amber-400 ring-2 ring-white"></span>
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-500">4 Warna Lengkap</p>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 2: Game Mode -->
+        <div>
+          <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-2">2. Pilih Mode Permainan</label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button type="button" onclick="selectGameMode('fast')" id="btn-mode-fast" class="mode-btn p-3 rounded-2xl border-2 border-amber-500 bg-amber-50/80 text-left transition shadow-sm">
+              <div class="flex items-center justify-between">
+                <span class="text-sm sm:text-base font-extrabold text-amber-900">⚡ Mode Cepat (1 Pion)</span>
+                <span class="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">10–15 Menit</span>
+              </div>
+              <p class="text-xs text-amber-800/90 mt-1">1 pion langsung siap jalan di kotak Start luar tanpa menunggu dadu 6. Cocok untuk sesi kelas!</p>
+            </button>
+
+            <button type="button" onclick="selectGameMode('normal')" id="btn-mode-normal" class="mode-btn p-3 rounded-2xl border-2 border-slate-200 bg-white hover:border-slate-300 text-left transition">
+              <div class="flex items-center justify-between">
+                <span class="text-sm sm:text-base font-extrabold text-slate-800">🏆 Mode Normal (4 Pion)</span>
+                <span class="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold">Klasik</span>
+              </div>
+              <p class="text-xs text-slate-600 mt-1">4 pion di markas. Keluar saat dadu 6, menang setelah memasukkan semua 4 pion ke Finish.</p>
+            </button>
+          </div>
+
+          <!-- Optional Easy Exit Toggle for Normal Mode -->
+          <div id="easy-exit-row" class="hidden mt-2.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div>
+              <span class="text-xs font-bold text-slate-700">Opsi Keluar Mudah (Dadu 6 atau 1)</span>
+              <p class="text-[11px] text-slate-500">Mempercepat pion keluar markas agar permainan kelas tidak macet</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="toggle-easy-exit" class="sr-only peer" checked />
+              <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Legend Preview -->
+        <div class="grid grid-cols-4 gap-1.5 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80 text-center">
+          <div class="flex flex-col items-center">
+            <span class="w-7 h-7 rounded-lg bg-sky-100 border border-sky-300 flex items-center justify-center text-sm">📅</span>
+            <span class="text-[10px] font-bold text-slate-600 mt-1">Waktu</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <span class="w-7 h-7 rounded-lg bg-purple-100 border border-purple-300 flex items-center justify-center text-xs font-bold font-jp text-purple-800">あ/ア</span>
+            <span class="text-[10px] font-bold text-slate-600 mt-1">Kana Tunggal</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <span class="w-7 h-7 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center text-sm">★</span>
+            <span class="text-[10px] font-bold text-slate-600 mt-1">Tantangan</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <span class="w-7 h-7 rounded-lg bg-emerald-100 border border-emerald-300 flex items-center justify-center text-sm">🛡️</span>
+            <span class="text-[10px] font-bold text-slate-600 mt-1">Petak Aman</span>
+          </div>
+        </div>
+
+        <!-- Launch Button -->
+        <button type="button" onclick="startGame()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-extrabold text-base shadow-lg shadow-sky-600/25 transition active:scale-[0.99] flex items-center justify-center gap-2">
+          <span>🚀 Mulai Permainan</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 2. MAIN HORIZONTAL SPLIT GAME ARENA (LANDSCAPE OPTIMIZED)             -->
+  <!-- ===================================================================== -->
+  <main id="game-arena" class="w-full min-h-[100dvh] flex flex-col md:flex-row items-center justify-center gap-3 md:gap-4 p-2 sm:p-3 max-w-7xl mx-auto">
+
+    <!-- LEFT / CENTER (~60%): CLEAN SQUARE LUDO BOARD -->
+    <section class="w-full md:w-[58%] flex flex-col items-center justify-center relative">
+      <div id="board-container" class="ludo-board-wrapper relative rounded-2xl sm:rounded-3xl bg-white p-1.5 sm:p-2 shadow-xl border-4 border-slate-800/90">
+        <!-- SVG Board Layer (Crisp 15x15 Grid + Clockwise Arrows + Category Icons) -->
+        <svg id="ludo-svg" viewBox="0 0 1500 1500" class="w-full h-full rounded-xl sm:rounded-2xl block"></svg>
+
+        <!-- Interactive Overlay Layer for Target Highlights & Animated Pawns -->
+        <div id="board-overlay" class="absolute inset-1.5 sm:inset-2 pointer-events-none"></div>
+      </div>
+
+      <!-- Floating Turn/Status Pill Below/Overlay Board -->
+      <div id="status-toast" class="mt-2 px-4 py-1.5 rounded-full bg-slate-900/90 text-white text-xs sm:text-sm font-bold shadow-md flex items-center gap-2 transition-all duration-200 max-w-full truncate">
+        <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
+        <span id="status-text" class="truncate">Giliran Pemain 1 (Merah) — Kocok Dadu!</span>
+      </div>
+    </section>
+
+    <!-- RIGHT (~40%): PLAYER CONTROL PANEL -->
+    <aside class="w-full md:w-[42%] flex flex-col justify-between gap-2.5 bg-white/90 backdrop-blur-md rounded-3xl p-3 sm:p-4 shadow-xl border border-white max-h-[94dvh]">
+
+      <!-- Top Utility Bar -->
+      <div class="flex items-center justify-between gap-1.5">
+        <div class="flex items-center gap-1.5">
+          <span class="px-2.5 py-1 rounded-xl bg-slate-800 text-white text-xs font-extrabold tracking-tight">🎲 NIHONGO LUDO</span>
+          <span id="mode-badge" class="px-2 py-1 rounded-xl bg-amber-100 text-amber-800 text-[11px] font-bold">⚡ Cepat</span>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="toggleAudio()" id="btn-audio" title="Suara Efek & Pelafalan" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+            🔊
+          </button>
+          <button type="button" onclick="toggleFullscreen()" id="btn-fullscreen" title="Layar Penuh" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+            ⛶
+          </button>
+          <button type="button" onclick="openRulesModal()" title="Aturan Main" class="px-2.5 py-2 rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-xs transition">
+            📖 Aturan
+          </button>
+          <button type="button" onclick="openResetModal()" title="Ulang Permainan" class="px-2.5 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition">
+            🔄 Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Player Status Cards Grid (2x2) -->
+      <div id="player-cards" class="grid grid-cols-2 gap-2">
+        <!-- Populated dynamically by JS -->
+      </div>
+
+      <!-- Interactive Dice & Action Zone -->
+      <div id="dice-panel" class="rounded-2xl p-3 bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-200 flex items-center justify-between gap-3">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5">
+            <span id="turn-badge" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold text-white bg-rose-500">Pemain 1 (Merah)</span>
+          </div>
+          <p id="turn-instruction" class="text-xs sm:text-sm font-bold text-slate-700 mt-1.5 leading-snug">
+            Tekan dadu untuk melangkah!
+          </p>
+          <div class="flex items-center gap-2 mt-1.5 text-[11px] text-slate-500 font-semibold">
+            <span>📅 Waktu</span>
+            <span>•</span>
+            <span class="font-jp">あ/ア Kana</span>
+            <span>•</span>
+            <span>★ Lisan</span>
+          </div>
+        </div>
+
+        <!-- Big Tactile Dice Button -->
+        <button type="button" id="dice-button" onclick="handleRollDice()" class="dice-btn shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white border-4 border-rose-500 shadow-lg flex items-center justify-center relative group cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+          <svg id="dice-svg" viewBox="0 0 100 100" class="w-14 h-14 sm:w-16 sm:h-16"></svg>
+          <span id="dice-tap-hint" class="absolute -bottom-2.5 px-2 py-0.5 rounded-full bg-slate-800 text-white text-[10px] font-extrabold tracking-wide shadow">KOCOK</span>
+        </button>
+      </div>
+
+      <!-- Compact Category Legend Footer -->
+      <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500 px-1">
+        <span>✅ Benar: Aman (+10 Poin)</span>
+        <span>❌ Salah: Mundur 1 Langkah</span>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- 3. QUIZ MODAL (MULTIPLE CHOICE: WAKTU & KANA TUNGGAL)                 -->
+  <!-- ===================================================================== -->
+  <div id="quiz-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
+    <div class="modal-animate w-full max-w-xl bg-white rounded-3xl shadow-2xl border-2 border-slate-200 overflow-hidden my-auto">
+      <!-- Quiz Header -->
+      <div id="quiz-header" class="px-5 py-3 bg-sky-600 text-white flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span id="quiz-cat-icon" class="text-xl">📅</span>
+          <div>
+            <span id="quiz-cat-label" class="text-xs font-extrabold uppercase tracking-wider opacity-90 block">Keterangan Waktu • Hari</span>
+            <span id="quiz-player-label" class="text-xs font-bold">Giliran Pemain 1 (Merah)</span>
+          </div>
+        </div>
+        <button type="button" id="quiz-audio-btn" onclick="speakCurrentQuiz()" class="hidden px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold flex items-center gap-1 transition">
+          <span>🔊 Lafalkan</span>
+        </button>
+      </div>
+
+      <!-- Quiz Content -->
+      <div class="p-4 sm:p-5">
+        <div class="bg-slate-50 rounded-2xl p-3.5 sm:p-4 border border-slate-200/80 mb-3.5 text-center">
+          <p id="quiz-question" class="text-base sm:text-lg font-extrabold text-slate-800 leading-snug"></p>
+          <p id="quiz-subhint" class="text-xs text-slate-500 font-medium mt-1"></p>
+        </div>
+
+        <!-- 4 Options Grid (2x2 on landscape/tablet for fast thumb tapping) -->
+        <div id="quiz-options" class="grid grid-cols-2 gap-2.5">
+          <!-- Buttons injected by JS -->
+        </div>
+
+        <!-- Feedback Banner (Shown after answering) -->
+        <div id="quiz-feedback" class="hidden mt-3.5 p-3 rounded-2xl border flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <span id="quiz-fb-icon" class="text-2xl">✅</span>
+            <div>
+              <p id="quiz-fb-title" class="text-sm font-extrabold"></p>
+              <p id="quiz-fb-detail" class="text-xs font-medium mt-0.5"></p>
+            </div>
+          </div>
+          <button type="button" onclick="closeQuizModal()" class="shrink-0 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold shadow transition">
+            Lanjut ➔
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 4. ORAL CHALLENGE MODAL (PETAK KHUSUS ★ / PEER CHECK)                 -->
+  <!-- ===================================================================== -->
+  <div id="challenge-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
+    <div class="modal-animate w-full max-w-xl bg-white rounded-3xl shadow-2xl border-2 border-amber-300 overflow-hidden my-auto">
+      <div class="px-5 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">⚡</span>
+          <div>
+            <span class="text-xs font-extrabold uppercase tracking-wider opacity-95 block">Petak Khusus ★ Tantangan Lisan</span>
+            <span id="challenge-player-label" class="text-xs font-bold">Giliran Pemain 1 (Merah)</span>
+          </div>
+        </div>
+        <!-- Auto-Running 30s Classroom Timer -->
+        <button type="button" onclick="toggleChallengeTimer()" id="challenge-timer-btn" title="Ketuk untuk Jeda/Lanjut Timer" class="px-3 py-1.5 rounded-xl bg-white/25 hover:bg-white/35 text-white text-xs font-extrabold flex items-center gap-1.5 transition shadow-sm">
+          <span id="challenge-timer-icon">⏱️</span>
+          <span id="challenge-timer-text">30d</span>
+        </button>
+      </div>
+      <!-- Smooth Visual Countdown Progress Bar -->
+      <div class="w-full h-1.5 bg-amber-200 overflow-hidden">
+        <div id="challenge-timer-bar" class="h-full bg-emerald-500 transition-all duration-1000 ease-linear" style="width: 100%;"></div>
+      </div>
+
+      <div class="p-4 sm:p-5 space-y-4">
+        <div class="bg-amber-50/90 rounded-2xl p-4 border-2 border-amber-200 text-center">
+          <span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[11px] font-extrabold mb-2">PERINTAH BERBICARA LANGSUNG</span>
+          <p id="challenge-text" class="text-base sm:text-lg font-extrabold text-slate-800 leading-relaxed"></p>
+          <p id="challenge-clue" class="text-xs text-amber-800 font-semibold mt-2 bg-white/80 inline-block px-3 py-1 rounded-lg border border-amber-200"></p>
+        </div>
+
+        <p class="text-xs text-center text-slate-500 font-semibold">
+          Pemain lawan / guru memvalidasi jawaban lisan secara langsung:
+        </p>
+
+        <!-- Peer / Group Verification Buttons -->
+        <div class="grid grid-cols-2 gap-3">
+          <button type="button" onclick="resolveChallenge(true)" class="py-3.5 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-600/20 transition active:scale-[0.98] flex flex-col items-center justify-center gap-0.5">
+            <span>✅ Berhasil Menjawab</span>
+            <span class="text-[10px] font-semibold opacity-90">Aman di petak (+15 Poin)</span>
+          </button>
+
+          <button type="button" onclick="resolveChallenge(false)" class="py-3.5 px-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-rose-600/20 transition active:scale-[0.98] flex flex-col items-center justify-center gap-0.5">
+            <span>❌ Gagal / Tidak Bisa</span>
+            <span class="text-[10px] font-semibold opacity-90">Pion mundur 1 langkah</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 5. RULES MODAL & RESET CONFIRMATION MODAL (NO alert/confirm)          -->
+  <!-- ===================================================================== -->
+  <div id="rules-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
+    <div class="modal-animate w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto">
+      <div class="px-5 py-3.5 bg-slate-800 text-white flex items-center justify-between">
+        <h2 class="text-base font-extrabold">📖 Aturan Nihongo Ludo</h2>
+        <button type="button" onclick="closeRulesModal()" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center font-bold">✕</button>
+      </div>
+      <div class="p-4 sm:p-5 space-y-2.5 text-xs sm:text-sm text-slate-700 max-h-[70dvh] overflow-y-auto">
+        <div class="p-2.5 rounded-xl bg-sky-50 border border-sky-200">
+          <strong class="text-sky-900">1. Alur Langkah:</strong> Kocok dadu dan jalankan pion searah jarum jam menuju lorong warna masing-masing hingga segitiga <strong>Finish</strong> di tengah. Dadu angka <strong>6</strong> memberi kesempatan lempar ulang!
+        </div>
+        <div class="p-2.5 rounded-xl bg-purple-50 border border-purple-200">
+          <strong class="text-purple-900">2. Petak Kuis (📅 Waktu &amp; あ/ア Kana):</strong> Jawab kuis pilihan ganda Bahasa Jepang (Hari, Tanggal, Bulan, atau Huruf Kana). <strong>Benar</strong> = tetap aman (+10 Poin). <strong>Salah</strong> = pion otomatis <strong>mundur 1 langkah</strong>!
+        </div>
+        <div class="p-2.5 rounded-xl bg-amber-50 border border-amber-200">
+          <strong class="text-amber-900">3. Petak Tantangan Lisan (★):</strong> Lakukan perintah berbicara secara langsung dan divalidasi oleh lawan/guru. Jika gagal, pion mundur 1 langkah.
+        </div>
+        <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+          <strong class="text-emerald-900">4. Petak Aman (🛡️) &amp; Tabrak Pion:</strong> Petak bertanda perisai/start bebas dari soal dan serangan lawan. Jika berhenti di petak biasa yang ditempati lawan, pion lawan terlempar ke markas (Mode Normal) atau mundur 3 langkah (Mode Cepat).
+        </div>
+      </div>
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 text-right">
+        <button type="button" onclick="closeRulesModal()" class="px-5 py-2 rounded-xl bg-slate-800 text-white text-xs font-extrabold">Mengerti</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="reset-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+    <div class="modal-animate w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 p-5 text-center space-y-4">
+      <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-2xl mx-auto">🔄</div>
+      <div>
+        <h3 class="text-base font-extrabold text-slate-800">Ulangi Permainan?</h3>
+        <p class="text-xs text-slate-500 mt-1">Progres papan saat ini akan direset dan kembali ke pengaturan pemain.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button type="button" onclick="closeResetModal()" class="py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs">Batal</button>
+        <button type="button" onclick="confirmResetGame()" class="py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs">Ya, Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 6. VICTORY PODIUM MODAL                                               -->
+  <!-- ===================================================================== -->
+  <div id="victory-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-sm">
+    <div class="modal-animate w-full max-w-md bg-white rounded-3xl shadow-2xl border-2 border-amber-300 overflow-hidden text-center">
+      <div class="bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 p-5 text-slate-900">
+        <div class="text-4xl mb-1">🏆</div>
+        <h2 class="text-xl font-extrabold tracking-tight">OMEDETOU! PEMENANG!</h2>
+        <p id="winner-subtitle" class="text-xs font-bold opacity-85 mt-0.5 font-jp">おめでとうございます！</p>
+      </div>
+      <div class="p-5 space-y-4">
+        <div id="podium-list" class="space-y-2 text-left">
+          <!-- Ranked players injected here -->
+        </div>
+        <button type="button" onclick="confirmResetGame()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-extrabold text-sm shadow-lg transition">
+          🔄 Main Lagi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- JAVASCRIPT ENGINE: BOARD GEOMETRY, CURRICULUM BANK, AUDIO & GAME LOOP -->
+  <!-- ===================================================================== -->
+  <script>
+    /*************************************************************************
+     * 1. WEB AUDIO API (SFX) & WEB SPEECH API (JAPANESE PRONUNCIATION)
+     *************************************************************************/
+    let audioEnabled = true;
+    let audioCtx = null;
+
+    function getAudioCtx() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) audioCtx = new AudioContextClass();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playTone(freq, type, duration, delay = 0, vol = 0.14) {
+      if (!audioEnabled) return;
+      try {
+        const ctx = getAudioCtx();
+        if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+        gain.gain.setValueAtTime(vol, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + duration);
+      } catch (e) {
+        // Ignore audio errors on restricted devices
+      }
+    }
+
+    function playDiceSound() {
+      for (let i = 0; i < 5; i++) {
+        playTone(220 + Math.random() * 240, 'triangle', 0.06, i * 0.07, 0.12);
+      }
+    }
+
+    // Cheerful Japanese Pentatonic Walking Backsound when Pawn Moves
+    function playStepSound(stepIndex = 0) {
+      const pentatonic = [293.66, 329.63, 392.00, 440.00, 493.88, 587.33, 659.25]; // D4, E4, G4, A4, B4, D5, E5
+      const bassNotes = [146.83, 196.00, 220.00, 196.00]; // D3, G3, A3, G3
+      const note = pentatonic[stepIndex % pentatonic.length];
+      const bass = bassNotes[stepIndex % bassNotes.length];
+
+      // Melodic marimba/koto pluck
+      playTone(note, 'triangle', 0.18, 0, 0.18);
+      playTone(note * 2, 'sine', 0.11, 0.02, 0.08);
+      // Rhythmic walking bass pulse
+      playTone(bass, 'sine', 0.2, 0, 0.15);
+    }
+
+    function playTimerTickSound(urgent = false) {
+      playTone(urgent ? 880 : 620, 'sine', 0.06, 0, urgent ? 0.12 : 0.05);
+    }
+
+    function playBackSound() {
+      playTone(392, 'sawtooth', 0.14, 0, 0.1);
+      playTone(311, 'sawtooth', 0.22, 0.12, 0.1);
+    }
+
+    function playCorrectSound() {
+      playTone(523.25, 'sine', 0.14, 0, 0.15);
+      playTone(659.25, 'sine', 0.14, 0.1, 0.15);
+      playTone(783.99, 'sine', 0.24, 0.2, 0.16);
+    }
+
+    function playWrongSound() {
+      playTone(260, 'triangle', 0.18, 0, 0.14);
+      playTone(210, 'triangle', 0.28, 0.15, 0.14);
+    }
+
+    function playCaptureSound() {
+      playTone(680, 'square', 0.09, 0, 0.12);
+      playTone(420, 'square', 0.14, 0.08, 0.12);
+      playTone(240, 'square', 0.2, 0.18, 0.12);
+    }
+
+    function playWinFanfare() {
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((n, idx) => {
+        playTone(n, 'triangle', 0.25, idx * 0.14, 0.18);
+      });
+    }
+
+    function speakJapanese(text) {
+      if (!audioEnabled || !('speechSynthesis' in window) || !text) return;
+      try {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'ja-JP';
+        utter.rate = 0.92;
+        window.speechSynthesis.speak(utter);
+      } catch (e) {
+        // Ignore speech synthesis restrictions
+      }
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      document.getElementById('btn-audio').textContent = audioEnabled ? '🔊' : '🔇';
+      if (audioEnabled) {
+        getAudioCtx();
+        playTone(600, 'sine', 0.1);
+      }
+    }
+
+    /*************************************************************************
+     * 2. HYBRID FULLSCREEN (NATIVE API + PSEUDO-FULLSCREEN FALLBACK)
+     *************************************************************************/
+    function toggleFullscreen() {
+      const docEl = document.documentElement;
+      const isNativeFs = document.fullscreenElement || document.webkitFullscreenElement;
+      if (!isNativeFs && !document.body.classList.contains('pseudo-fullscreen')) {
+        if (docEl.requestFullscreen) {
+          docEl.requestFullscreen().catch(() => document.body.classList.add('pseudo-fullscreen'));
+        } else if (docEl.webkitRequestFullscreen) {
+          docEl.webkitRequestFullscreen();
+        } else {
+          document.body.classList.add('pseudo-fullscreen');
+        }
+      } else {
+        if (document.exitFullscreen && document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen && document.webkitFullscreenElement) {
+          document.webkitExitFullscreen();
+        }
+        document.body.classList.remove('pseudo-fullscreen');
+      }
+    }
+
+    /*************************************************************************
+     * 3. CURRICULUM QUESTION BANK (HARI, TANGGAL, BULAN, KANA & LISAN)
+     *************************************************************************/
+    const QUIZ_BANK = {
+      hari: [
+        { q: "Bahasa Jepang dari 'Hari Rabu' adalah...", hint: "Hari elemen Air (水)", opts: ["すいようび", "かようび", "もくようび", "きんようび"], ans: 0, jpSpeech: "すいようび", exp: "すいようび (Suiyoubi) = Hari Rabu." },
+        { q: "Bahasa Jepang dari 'Hari Minggu' adalah...", hint: "Hari elemen Matahari (日)", opts: ["げつようび", "どようび", "にちようび", "かようび"], ans: 2, jpSpeech: "にちようび", exp: "にちようび (Nichiyoubi) = Hari Minggu." },
+        { q: "Bahasa Jepang dari 'Hari Jumat' adalah...", hint: "Hari elemen Emas/Logam (金)", opts: ["もくようび", "きんようび", "どようび", "すいようび"], ans: 1, jpSpeech: "きんようび", exp: "きんようび (Kinyoubi) = Hari Jumat." },
+        { q: "Bahasa Jepang dari 'Hari Selasa' adalah...", hint: "Hari elemen Api (火)", opts: ["かようび", "げつようび", "すいようび", "にちようび"], ans: 0, jpSpeech: "かようび", exp: "かようび (Kayoubi) = Hari Selasa." },
+        { q: "Arti dari kosakata 「あさって」 adalah...", hint: "Keterangan waktu masa depan", opts: ["Kemarin lusa", "Besok", "Besok lusa", "Minggu depan"], ans: 2, jpSpeech: "あさって", exp: "あさって (Asatte) berarti Besok lusa." },
+        { q: "Arti dari kosakata 「おととい」 adalah...", hint: "Keterangan waktu lampau", opts: ["Kemarin", "Kemarin lusa", "Hari ini", "Besok lusa"], ans: 1, jpSpeech: "おととい", exp: "おととい (Ototoi) berarti Kemarin lusa." },
+        { q: "Kata tanya untuk menanyakan hari dalam bahasa Jepang adalah...", hint: "Nan-youbi", opts: ["なんにち", "なんがつ", "なんようび", "いつ"], ans: 2, jpSpeech: "なんようび", exp: "なんようび (Nanyoubi) = Hari apa." }
+      ],
+      tanggal: [
+        { q: "Bahasa Jepang dari 'Tanggal 1' adalah...", hint: "Bacaan khusus (pengecualian)", opts: ["いちにち", "ついたち", "ふつか", "とおか"], ans: 1, jpSpeech: "ついたち", exp: "Tanggal 1 dibaca ついたち (Tsuitachi)." },
+        { q: "Bahasa Jepang dari 'Tanggal 8' adalah...", hint: "Hati-hati tertukar dengan tanggal 4!", opts: ["よっか", "はちにち", "ようか", "ここのか"], ans: 2, jpSpeech: "ようか", exp: "Tanggal 8 dibaca ようか (Youka), sedangkan tanggal 4 adalah よっか (Yokka)." },
+        { q: "Arti dari tanggal 「はつか」 adalah...", hint: "Bacaan khusus kelipatan 10", opts: ["Tanggal 2", "Tanggal 10", "Tanggal 14", "Tanggal 20"], ans: 3, jpSpeech: "はつか", exp: "はつか (Hatsuka) adalah Tanggal 20." },
+        { q: "Bahasa Jepang dari 'Tanggal 4' adalah...", hint: "Bacaan khusus dengan bunyi 'kka'", opts: ["よっか", "ようか", "よんにち", "みっか"], ans: 0, jpSpeech: "よっか", exp: "Tanggal 4 dibaca よっか (Yokka)." },
+        { q: "Bahasa Jepang dari 'Tanggal 14' adalah...", hint: "10 (juu) + 4 (yokka)", opts: ["じゅうよんにち", "じゅうようか", "じゅうよっか", "しじゅうにち"], ans: 2, jpSpeech: "じゅうよっか", exp: "Tanggal 14 dibaca じゅうよっか (Juuyokka)." },
+        { q: "Bahasa Jepang dari 'Tanggal 24' adalah...", hint: "20 (nijuu) + 4 (yokka)", opts: ["にじゅうよっか", "にじゅうようか", "はつかよっか", "にじゅうよんにち"], ans: 0, jpSpeech: "にじゅうよっか", exp: "Tanggal 24 dibaca にじゅうよっか (Nijuuyokka)." },
+        { q: "Arti dari tanggal 「ここのか」 adalah...", hint: "Antara tanggal 8 dan 10", opts: ["Tanggal 6", "Tanggal 7", "Tanggal 9", "Tanggal 10"], ans: 2, jpSpeech: "ここのか", exp: "ここのか (Kokonoka) = Tanggal 9." },
+        { q: "Bahasa Jepang dari 'Tanggal 3' adalah...", hint: "Bacaan khusus dengan tsu kecil", opts: ["さんにち", "みっか", "むいか", "ふつか"], ans: 1, jpSpeech: "みっか", exp: "Tanggal 3 dibaca みっか (Mikka)." }
+      ],
+      bulan: [
+        { q: "Bahasa Jepang dari 'Bulan April (Bulan 4)' adalah...", hint: "Pengecualian (bukan yon-gatsu)", opts: ["よんがつ", "しがつ", "しちがつ", "くがつ"], ans: 1, jpSpeech: "しがつ", exp: "Bulan April dibaca しがつ (Shigatsu)." },
+        { q: "Bahasa Jepang dari 'Bulan September (Bulan 9)' adalah...", hint: "Pengecualian (bukan kyuu-gatsu)", opts: ["きゅうがつ", "しちがつ", "くがつ", "じゅうがつ"], ans: 2, jpSpeech: "くがつ", exp: "Bulan September dibaca くがつ (Kugatsu)." },
+        { q: "Bahasa Jepang dari 'Bulan Juli (Bulan 7)' adalah...", hint: "Pengecualian (bukan nana-gatsu)", opts: ["なながつ", "しがつ", "しちがつ", "はちがつ"], ans: 2, jpSpeech: "しちがつ", exp: "Bulan Juli dibaca しちがつ (Shichigatsu)." },
+        { q: "Arti dari 「じゅういちがつ」 adalah...", hint: "10 + 1 + gatsu", opts: ["Bulan Januari", "Bulan Oktober", "Bulan November", "Bulan Desember"], ans: 2, jpSpeech: "じゅういちがつ", exp: "じゅういちがつ (Juuichigatsu) = Bulan November." },
+        { q: "Kata tanya untuk menanyakan bulan dalam bahasa Jepang adalah...", hint: "Nan-gatsu", opts: ["なんにち", "なんがつ", "なんようび", "なんじ"], ans: 1, jpSpeech: "なんがつ", exp: "なんがつ (Nangatsu) = Bulan apa." }
+      ],
+      kana: [
+        { q: "Huruf Katakana untuk bunyi 'SHI' adalah...", hint: "Wajah tersenyum menghadap ke samping", opts: ["シ", "ツ", "ソ", "ン"], ans: 0, jpSpeech: "し", exp: "シ adalah Katakana 'SHI' (goresan mendatar dari bawah ke atas)." },
+        { q: "Bunyi dari huruf Hiragana 「ぬ」 adalah...", hint: "Memiliki simpul ikatan di ekornya", opts: ["me", "nu", "ne", "no"], ans: 1, jpSpeech: "ぬ", exp: "ぬ dibaca 'nu' (berbeda dengan め 'me' yang tanpa simpul)." },
+        { q: "Huruf Katakana 「ソ」 dibaca...", hint: "Dua goresan dari atas ke bawah", opts: ["n", "shi", "tsu", "so"], ans: 3, jpSpeech: "そ", exp: "ソ dibaca 'so'." },
+        { q: "Huruf Hiragana untuk bunyi 'NE' adalah...", hint: "Garis tegak di kiri + lengkungan bersimpul", opts: ["れ", "わ", "ね", "ぬ"], ans: 2, jpSpeech: "ね", exp: "ね adalah Hiragana 'ne'." },
+        { q: "Bunyi dari huruf Katakana 「ツ」 adalah...", hint: "Dua titik vertikal di atas, goresan turun", opts: ["shi", "tsu", "so", "n"], ans: 1, jpSpeech: "つ", exp: "ツ dibaca 'tsu'." },
+        { q: "Huruf Hiragana 「ち」 dibaca...", hint: "Mirip angka 5", opts: ["sa", "ki", "chi", "tsu"], ans: 2, jpSpeech: "ち", exp: "ち dibaca 'chi'." },
+        { q: "Huruf Katakana untuk bunyi 'N' adalah...", hint: "Satu titik di atas, goresan naik ke kanan atas", opts: ["ソ", "ン", "シ", "ノ"], ans: 1, jpSpeech: "ん", exp: "ン adalah Katakana 'N'." },
+        { q: "Bunyi dari huruf Hiragana 「む」 adalah...", hint: "Mirip wajah sapi (ushi/mushi)", opts: ["su", "mu", "ma", "mo"], ans: 1, jpSpeech: "む", exp: "む dibaca 'mu'." }
+      ]
+    };
+
+    const ORAL_CHALLENGES = [
+      { text: "Sebutkan urutan tanggal dari tanggal 1 sampai 5 dalam bahasa Jepang!", clue: "Petunjuk: tsuitachi, futsuka, mikka, yokka, itsuka" },
+      { text: "Sebutkan nama-nama hari dari Senin sampai Minggu dalam bahasa Jepang!", clue: "Petunjuk: getsuyoubi ~ nichiyoubi" },
+      { text: "Sebutkan nama bulan dari Januari sampai Juni dalam bahasa Jepang!", clue: "Petunjuk: ichigatsu ~ rokugatsu (ingat April = shigatsu)" },
+      { text: "Sebutkan 3 tanggal yang memiliki bacaan khusus (pengecualian) dalam bahasa Jepang!", clue: "Contoh: tsuitachi (1), youka (8), hatsuka (20)" },
+      { text: "Sebutkan 3 bulan yang memiliki bacaan khusus (April, Juli, September) dalam bahasa Jepang!", clue: "Petunjuk: shigatsu, shichigatsu, kugatsu" },
+      { text: "Sebutkan arti dari: きょう (kyou), あした (ashita), dan あさって (asatte)!", clue: "Keterangan waktu hari ini & masa depan" },
+      { text: "Sebutkan bahasa Jepang dari: Kemarin, Kemarin lusa, dan Hari ini!", clue: "Petunjuk: kinou, ototoi, kyou" },
+      { text: "Tunjukkan dan baca 3 huruf Katakana yang mirip: シ, ツ, ソ, ン!", clue: "Bedakan arah goresan shi, tsu, so, n" },
+      { text: "Sebutkan tanggal ulang tahunmu sendiri dalam bahasa Jepang (bulan & tanggal)!", clue: "Pola: [Bulan]-gatsu [Tanggal] desu" },
+      { text: "Sebutkan hari dan tanggal hari ini dalam bahasa Jepang!", clue: "Pola: Kyou wa [Bulan] [Tanggal], [Hari]-youbi desu" },
+      { text: "Sebutkan urutan tanggal dari tanggal 6 sampai 10 dalam bahasa Jepang!", clue: "Petunjuk: muika, nanoka, youka, kokonoka, tooka" },
+      { text: "Sebutkan bahasa Jepang dari: Tanggal 14, Tanggal 20, dan Tanggal 24!", clue: "Petunjuk: juuyokka, hatsuka, nijuuyokka" },
+      { text: "Sebutkan nama bulan dari Juli sampai Desember dalam bahasa Jepang!", clue: "Petunjuk: shichigatsu ~ juunigatsu" },
+      { text: "Ucapkan 5 huruf Hiragana baris NA (na, ni, nu, ne, no) secara berurutan!", clue: "Petunjuk: な・に・ぬ・ね・の" },
+      { text: "Tanyakan hari ulang tahun teman di sebelahmu menggunakan bahasa Jepang!", clue: "Petunjuk: Tanjoubi wa itsu desu ka?" }
+    ];
+
+    /*************************************************************************
+     * 4. 15x15 LUDO BOARD COORDINATES & CLEAN CATEGORY TRACK
+     *************************************************************************/
+    const MAIN_TRACK = [
+      [6, 1], [6, 2], [6, 3], [6, 4], [6, 5],
+      [5, 6], [4, 6], [3, 6], [2, 6], [1, 6], [0, 6],
+      [0, 7],
+      [0, 8], [1, 8], [2, 8], [3, 8], [4, 8], [5, 8],
+      [6, 9], [6, 10], [6, 11], [6, 12], [6, 13], [6, 14],
+      [7, 14],
+      [8, 14], [8, 13], [8, 12], [8, 11], [8, 10], [8, 9],
+      [9, 8], [10, 8], [11, 8], [12, 8], [13, 8], [14, 8],
+      [14, 7],
+      [14, 6], [13, 6], [12, 6], [11, 6], [10, 6], [9, 6],
+      [8, 5], [8, 4], [8, 3], [8, 2], [8, 1], [8, 0],
+      [7, 0],
+      [6, 0]
+    ];
+
+    const HOME_STRETCHES = [
+      [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],       // P1 Red (Left -> Center)
+      [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],       // P2 Blue (Top -> Center)
+      [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]],   // P3 Green (Right -> Center)
+      [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]]    // P4 Yellow (Bottom -> Center)
+    ];
+
+    const BASE_SLOTS = [
+      [[1.8, 1.8], [1.8, 3.2], [3.2, 1.8], [3.2, 3.2]],       // P1 Red (Top-Left)
+      [[1.8, 10.8], [1.8, 12.2], [3.2, 10.8], [3.2, 12.2]],   // P2 Blue (Top-Right)
+      [[10.8, 10.8], [10.8, 12.2], [12.2, 10.8], [12.2, 12.2]], // P3 Green (Bottom-Right)
+      [[10.8, 1.8], [10.8, 3.2], [12.2, 1.8], [12.2, 3.2]]    // P4 Yellow (Bottom-Left)
+    ];
+
+    const PLAYER_META = [
+      { id: 0, name: "Pemain 1 (Merah)", short: "P1 Merah", color: "#ef4444", dark: "#b91c1c", light: "#fee2e2", startIdx: 0 },
+      { id: 1, name: "Pemain 2 (Biru)", short: "P2 Biru", color: "#3b82f6", dark: "#1d4ed8", light: "#dbeafe", startIdx: 13 },
+      { id: 2, name: "Pemain 3 (Hijau)", short: "P3 Hijau", color: "#10b981", dark: "#047857", light: "#d1fae5", startIdx: 26 },
+      { id: 3, name: "Pemain 4 (Kuning)", short: "P4 Kuning", color: "#f59e0b", dark: "#b45309", light: "#fef3c7", startIdx: 39 }
+    ];
+
+    const SAFE_INDICES = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
+
+    const TILE_PATTERN = [
+      'hari', 'kana', 'tanggal', 'challenge', 'bulan', 'kana', 'hari', 'safe',
+      'tanggal', 'kana', 'bulan', 'challenge', 'hari', 'kana', 'tanggal', 'bulan',
+      'kana', 'challenge', 'hari', 'tanggal', 'safe', 'kana', 'bulan', 'hari',
+      'challenge', 'tanggal', 'kana', 'bulan', 'hari', 'kana', 'challenge', 'tanggal',
+      'bulan', 'safe', 'kana', 'hari', 'tanggal', 'challenge', 'bulan', 'kana',
+      'hari', 'tanggal', 'kana', 'challenge', 'bulan', 'hari', 'safe', 'kana',
+      'tanggal', 'bulan', 'challenge'
+    ];
+
+    function getTrackCategory(idx) {
+      if (SAFE_INDICES.has(idx)) return 'safe';
+      return TILE_PATTERN[idx % TILE_PATTERN.length];
+    }
+
+    /*************************************************************************
+     * 5. GAME STATE & SETUP CONTROLS
+     *************************************************************************/
+    let config = {
+      playerCount: 2,
+      mode: 'fast',
+      easyExit: true
+    };
+
+    let state = {
+      players: [],
+      turn: 0,
+      diceValue: 6,
+      phase: 'ROLL',
+      movablePawnIds: [],
+      activePawnId: null,
+      currentQuiz: null,
+      winners: [],
+      usedQuizKeys: new Set(),
+      usedChallengeIdx: new Set()
+    };
+
+    let challengeTimerInterval = null;
+    let challengeSeconds = 30;
+    let challengeTimerRunning = false;
+
+    function selectPlayerCount(count) {
+      config.playerCount = count;
+      [2, 3, 4].forEach(n => {
+        const btn = document.getElementById(`btn-p-${n}`);
+        if (n === count) {
+          btn.className = "player-count-btn p-2.5 sm:p-3 rounded-2xl border-2 border-sky-500 bg-sky-50 text-sky-900 font-bold text-left transition shadow-sm";
+        } else {
+          btn.className = "player-count-btn p-2.5 sm:p-3 rounded-2xl border-2 border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-bold text-left transition";
+        }
+      });
+    }
+
+    function selectGameMode(mode) {
+      config.mode = mode;
+      const fastBtn = document.getElementById('btn-mode-fast');
+      const normBtn = document.getElementById('btn-mode-normal');
+      const easyRow = document.getElementById('easy-exit-row');
+
+      if (mode === 'fast') {
+        fastBtn.className = "mode-btn p-3 rounded-2xl border-2 border-amber-500 bg-amber-50/80 text-left transition shadow-sm";
+        normBtn.className = "mode-btn p-3 rounded-2xl border-2 border-slate-200 bg-white hover:border-slate-300 text-left transition";
+        easyRow.classList.add('hidden');
+      } else {
+        normBtn.className = "mode-btn p-3 rounded-2xl border-2 border-indigo-500 bg-indigo-50/80 text-left transition shadow-sm";
+        fastBtn.className = "mode-btn p-3 rounded-2xl border-2 border-slate-200 bg-white hover:border-slate-300 text-left transition";
+        easyRow.classList.remove('hidden');
+      }
+    }
+
+    function startGame() {
+      getAudioCtx();
+      config.easyExit = document.getElementById('toggle-easy-exit').checked;
+
+      const pawnsPerPlayer = config.mode === 'fast' ? 1 : 4;
+      state.players = [];
+      for (let i = 0; i < config.playerCount; i++) {
+        const meta = PLAYER_META[i];
+        const pawns = [];
+        for (let p = 0; p < pawnsPerPlayer; p++) {
+          pawns.push({
+            id: `${i}-${p}`,
+            playerId: i,
+            index: p,
+            steps: config.mode === 'fast' ? 0 : -1
+          });
+        }
+        state.players.push({
+          ...meta,
+          score: 0,
+          pawns
+        });
+      }
+
+      state.turn = 0;
+      state.diceValue = 6;
+      state.phase = 'ROLL';
+      state.movablePawnIds = [];
+      state.activePawnId = null;
+      state.winners = [];
+      state.usedQuizKeys.clear();
+      state.usedChallengeIdx.clear();
+
+      document.getElementById('mode-badge').textContent = config.mode === 'fast' ? '⚡ Cepat (1 Pion)' : '🏆 Normal (4 Pion)';
+      document.getElementById('setup-screen').classList.add('hidden');
+      document.getElementById('victory-modal').classList.add('hidden');
+
+      drawBoardSVG();
+      renderDiceSVG(6);
+      renderAll();
+      updateTurnUI();
+      playTone(523.25, 'sine', 0.15);
+    }
+
+    /*************************************************************************
+     * 6. CLEAN SVG LUDO BOARD GENERATOR
+     *************************************************************************/
+    function drawBoardSVG() {
+      const svg = document.getElementById('ludo-svg');
+      const cell = 100;
+      let html = '';
+
+      html += `<rect x="0" y="0" width="1500" height="1500" fill="#ffffff" />`;
+
+      const bases = [
+        { r: 0, c: 0, color: '#ef4444', light: '#fee2e2', label: 'P1' },
+        { r: 0, c: 9, color: '#3b82f6', light: '#dbeafe', label: 'P2' },
+        { r: 9, c: 9, color: '#10b981', light: '#d1fae5', label: 'P3' },
+        { r: 9, c: 0, color: '#f59e0b', light: '#fef3c7', label: 'P4' }
+      ];
+
+      bases.forEach((b, idx) => {
+        const x = b.c * cell;
+        const y = b.r * cell;
+        const isActive = idx < config.playerCount;
+        html += `
+          <rect x="${x}" y="${y}" width="600" height="600" fill="${b.color}" opacity="${isActive ? '1' : '0.35'}" />
+          <rect x="${x + 65}" y="${y + 65}" width="470" height="470" rx="64" fill="#ffffff" />
+          <rect x="${x + 90}" y="${y + 90}" width="420" height="420" rx="48" fill="${b.light}" opacity="0.55" />
+        `;
+        BASE_SLOTS[idx].forEach(([sr, sc]) => {
+          html += `<circle cx="${(sc + 0.5) * cell}" cy="${(sr + 0.5) * cell}" r="48" fill="#ffffff" stroke="${b.color}" stroke-width="8" />`;
+        });
+      });
+
+      HOME_STRETCHES.forEach((stretch, pIdx) => {
+        const pColor = PLAYER_META[pIdx].color;
+        stretch.slice(0, 5).forEach(([r, c]) => {
+          html += `<rect x="${c * cell}" y="${r * cell}" width="${cell}" height="${cell}" fill="${pColor}" opacity="0.88" stroke="#cbd5e1" stroke-width="3" />`;
+          html += `<circle cx="${(c + 0.5) * cell}" cy="${(r + 0.5) * cell}" r="14" fill="#ffffff" opacity="0.45" />`;
+        });
+      });
+
+      html += `
+        <polygon points="600,600 750,750 600,900" fill="#ef4444" stroke="#ffffff" stroke-width="4" />
+        <polygon points="600,600 900,600 750,750" fill="#3b82f6" stroke="#ffffff" stroke-width="4" />
+        <polygon points="900,600 900,900 750,750" fill="#10b981" stroke="#ffffff" stroke-width="4" />
+        <polygon points="600,900 900,900 750,750" fill="#f59e0b" stroke="#ffffff" stroke-width="4" />
+        <circle cx="750" cy="750" r="46" fill="#ffffff" shadow="true" />
+        <text x="750" y="764" text-anchor="middle" font-size="38">🏆</text>
+      `;
+
+      MAIN_TRACK.forEach(([r, c], idx) => {
+        const x = c * cell;
+        const y = r * cell;
+        const cat = getTrackCategory(idx);
+
+        let bg = '#ffffff';
+        let icon = '';
+        let iconColor = '#334155';
+        let fontSize = 42;
+
+        if (idx === 0) { bg = '#fee2e2'; icon = '🛡️'; }
+        else if (idx === 13) { bg = '#dbeafe'; icon = '🛡️'; }
+        else if (idx === 26) { bg = '#d1fae5'; icon = '🛡️'; }
+        else if (idx === 39) { bg = '#fef3c7'; icon = '🛡️'; }
+        else if (cat === 'safe') {
+          bg = '#ecfdf5';
+          icon = '🛡️';
+        } else if (cat === 'kana') {
+          bg = '#f3e8ff';
+          icon = idx % 2 === 0 ? 'あ' : 'ア';
+          iconColor = '#6b21a8';
+          fontSize = 44;
+        } else if (cat === 'challenge') {
+          bg = '#fef3c7';
+          icon = '★';
+          iconColor = '#d97706';
+          fontSize = 46;
+        } else {
+          bg = '#e0f2fe';
+          icon = '📅';
+          fontSize = 38;
+        }
+
+        html += `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" fill="${bg}" stroke="#cbd5e1" stroke-width="3" />`;
+
+        if (idx === 0) html += `<rect x="${x + 6}" y="${y + 6}" width="88" height="88" rx="16" fill="none" stroke="#ef4444" stroke-width="6" />`;
+        if (idx === 13) html += `<rect x="${x + 6}" y="${y + 6}" width="88" height="88" rx="16" fill="none" stroke="#3b82f6" stroke-width="6" />`;
+        if (idx === 26) html += `<rect x="${x + 6}" y="${y + 6}" width="88" height="88" rx="16" fill="none" stroke="#10b981" stroke-width="6" />`;
+        if (idx === 39) html += `<rect x="${x + 6}" y="${y + 6}" width="88" height="88" rx="16" fill="none" stroke="#f59e0b" stroke-width="6" />`;
+
+        html += `<text x="${x + 50}" y="${y + 64}" text-anchor="middle" font-size="${fontSize}" font-weight="900" fill="${iconColor}" font-family="'Noto Sans JP', sans-serif">${icon}</text>`;
+
+        const nextCoord = MAIN_TRACK[(idx + 1) % 52];
+        const dr = nextCoord[0] - r;
+        const dc = nextCoord[1] - c;
+        let arrow = '';
+        if (dc === 1) arrow = '→';
+        else if (dc === -1) arrow = '←';
+        else if (dr === 1) arrow = '↓';
+        else if (dr === -1) arrow = '↑';
+
+        if (arrow) {
+          html += `<text x="${x + 84}" y="${y + 24}" text-anchor="middle" font-size="18" font-weight="800" fill="#94a3b8">${arrow}</text>`;
+        }
+      });
+
+      svg.innerHTML = html;
+    }
+
+    /*************************************************************************
+     * 7. PAWN POSITIONING & OVERLAY RENDERING
+     *************************************************************************/
+    function getPawnGridCoord(pawn) {
+      const pIdx = pawn.playerId;
+      if (pawn.steps === -1) {
+        return BASE_SLOTS[pIdx][pawn.index];
+      }
+      if (pawn.steps >= 0 && pawn.steps <= 50) {
+        const trackIdx = (PLAYER_META[pIdx].startIdx + pawn.steps) % 52;
+        return MAIN_TRACK[trackIdx];
+      }
+      const homeStep = Math.min(pawn.steps - 51, 5);
+      return HOME_STRETCHES[pIdx][homeStep];
+    }
+
+    function renderAll() {
+      renderBoardOverlay();
+      renderPlayerCards();
+    }
+
+    function renderBoardOverlay() {
+      const overlay = document.getElementById('board-overlay');
+      let html = '';
+
+      if (state.phase === 'SELECT_PAWN' && state.movablePawnIds.length > 0) {
+        const currentPlayer = state.players[state.turn];
+        state.movablePawnIds.forEach(pid => {
+          const pawn = currentPlayer.pawns.find(p => p.id === pid);
+          if (!pawn) return;
+          const targetSteps = pawn.steps === -1 ? 0 : Math.min(pawn.steps + state.diceValue, 56);
+          const tempPawn = { ...pawn, steps: targetSteps };
+          const [tr, tc] = getPawnGridCoord(tempPawn);
+          const leftPct = ((tc + 0.5) / 15) * 100;
+          const topPct = ((tr + 0.5) / 15) * 100;
+
+          html += `
+            <div class="target-highlight absolute w-[6.2%] h-[6.2%] rounded-full border-4 border-dashed"
+                 style="left: ${leftPct}%; top: ${topPct}%; border-color: ${currentPlayer.color}; background: ${currentPlayer.color}33;">
+            </div>
+          `;
+        });
+      }
+
+      const cellGroups = {};
+      state.players.forEach(pl => {
+        pl.pawns.forEach(pawn => {
+          const [r, c] = getPawnGridCoord(pawn);
+          const key = `${r.toFixed(1)},${c.toFixed(1)}`;
+          if (!cellGroups[key]) cellGroups[key] = [];
+          cellGroups[key].push(pawn);
+        });
+      });
+
+      Object.values(cellGroups).forEach(group => {
+        group.forEach((pawn, idxInCell) => {
+          const [r, c] = getPawnGridCoord(pawn);
+          const player = state.players[pawn.playerId];
+          const isMovable = state.phase === 'SELECT_PAWN' && state.movablePawnIds.includes(pawn.id);
+
+          let offsetX = 0;
+          let offsetY = 0;
+          if (group.length > 1) {
+            const angle = (idxInCell / group.length) * Math.PI * 2;
+            offsetX = Math.cos(angle) * 1.1;
+            offsetY = Math.sin(angle) * 1.1;
+          }
+
+          const leftPct = ((c + 0.5) / 15) * 100 + offsetX;
+          const topPct = ((r + 0.5) / 15) * 100 + offsetY;
+
+          html += `
+            <button type="button"
+              onclick="handlePawnClick('${pawn.id}')"
+              ${isMovable ? '' : 'disabled'}
+              class="pawn-token pointer-events-auto absolute w-[5.4%] h-[5.4%] rounded-full flex items-center justify-center shadow-md border-2 border-white ${isMovable ? 'pawn-movable ring-4 ring-yellow-300' : ''}"
+              style="left: ${leftPct}%; top: ${topPct}%; background: radial-gradient(circle at 30% 30%, #ffffff55, ${player.color}); z-index: ${10 + pawn.playerId};">
+              <span class="w-[45%] h-[45%] rounded-full bg-white/90 block"></span>
+            </button>
+          `;
+        });
+      });
+
+      overlay.innerHTML = html;
+    }
+
+    function renderPlayerCards() {
+      const container = document.getElementById('player-cards');
+      let html = '';
+
+      state.players.forEach((pl, idx) => {
+        const isTurn = idx === state.turn;
+        const finishedCount = pl.pawns.filter(p => p.steps === 56).length;
+        const totalPawns = pl.pawns.length;
+
+        html += `
+          <div class="rounded-2xl p-2.5 border-2 transition-all ${isTurn ? 'shadow-md scale-[1.01]' : 'opacity-75 bg-slate-50/80 border-slate-200'}"
+               style="${isTurn ? `border-color: ${pl.color}; background-color: ${pl.light}66;` : ''}">
+            <div class="flex items-center justify-between gap-1">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-3.5 h-3.5 rounded-full shrink-0 border border-white shadow-sm" style="background-color: ${pl.color};"></span>
+                <span class="text-xs font-extrabold text-slate-800 truncate">${pl.short}</span>
+              </div>
+              <span class="text-[11px] font-extrabold px-1.5 py-0.5 rounded-md bg-white/90 text-slate-700 border border-slate-200/80">${pl.score} pt</span>
+            </div>
+            <div class="flex items-center justify-between mt-1.5 text-[11px] font-bold text-slate-600">
+              <span>Finish: ${finishedCount}/${totalPawns}</span>
+              ${isTurn ? `<span class="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-slate-900 text-white animate-pulse">GILIRAN</span>` : ''}
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    /*************************************************************************
+     * 8. DICE RENDERING & TURN FLOW
+     *************************************************************************/
+    function renderDiceSVG(val) {
+      const svg = document.getElementById('dice-svg');
+      const player = state.players[state.turn] || PLAYER_META[0];
+      const pipPositions = {
+        1: [[50, 50]],
+        2: [[28, 28], [72, 72]],
+        3: [[26, 26], [50, 50], [74, 74]],
+        4: [[28, 28], [72, 28], [28, 72], [72, 72]],
+        5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
+        6: [[28, 24], [72, 24], [28, 50], [72, 50], [28, 76], [72, 76]]
+      };
+
+      const pips = (pipPositions[val] || pipPositions[1]).map(([cx, cy]) =>
+        `<circle cx="${cx}" cy="${cy}" r="9.5" fill="${val === 6 ? '#ef4444' : '#1e293b'}" />`
+      ).join('');
+
+      svg.innerHTML = `
+        <rect x="6" y="6" width="88" height="88" rx="20" fill="#ffffff" stroke="${player.color}" stroke-width="6" />
+        ${pips}
+      `;
+    }
+
+    function updateTurnUI(customMsg = null) {
+      const player = state.players[state.turn];
+      const badge = document.getElementById('turn-badge');
+      const instr = document.getElementById('turn-instruction');
+      const diceBtn = document.getElementById('dice-button');
+      const diceHint = document.getElementById('dice-tap-hint');
+      const statusDot = document.getElementById('status-dot');
+      const statusText = document.getElementById('status-text');
+
+      badge.textContent = player.name;
+      badge.style.backgroundColor = player.color;
+      diceBtn.style.borderColor = player.color;
+      statusDot.style.backgroundColor = player.color;
+
+      if (state.phase === 'ROLL') {
+        diceBtn.disabled = false;
+        diceHint.textContent = 'KOCOK';
+        instr.textContent = customMsg || 'Tekan dadu untuk melangkah!';
+        statusText.textContent = customMsg || `Giliran ${player.name} — Kocok Dadu!`;
+      } else if (state.phase === 'SELECT_PAWN') {
+        diceBtn.disabled = true;
+        diceHint.textContent = `ANGKA ${state.diceValue}`;
+        instr.textContent = 'Ketuk pion yang bersinar untuk melangkah!';
+        statusText.textContent = `${player.name} mendapat ${state.diceValue} — Pilih Pion!`;
+      } else {
+        diceBtn.disabled = true;
+        diceHint.textContent = `ANGKA ${state.diceValue}`;
+        if (customMsg) {
+          instr.textContent = customMsg;
+          statusText.textContent = customMsg;
+        }
+      }
+      renderDiceSVG(state.diceValue);
+    }
+
+    function getMovablePawns(player, diceVal) {
+      const canExit = diceVal === 6 || (config.mode === 'normal' && config.easyExit && diceVal === 1);
+      return player.pawns.filter(pawn => {
+        if (pawn.steps === 56) return false;
+        if (pawn.steps === -1) return canExit;
+        return pawn.steps + diceVal <= 56;
+      });
+    }
+
+    function handleRollDice() {
+      if (state.phase !== 'ROLL') return;
+      state.phase = 'ROLLING';
+      const diceBtn = document.getElementById('dice-button');
+      diceBtn.disabled = true;
+      diceBtn.classList.add('dice-rolling');
+      playDiceSound();
+
+      let ticks = 0;
+      const rollAnim = setInterval(() => {
+        ticks++;
+        renderDiceSVG(Math.floor(Math.random() * 6) + 1);
+        if (ticks >= 8) {
+          clearInterval(rollAnim);
+          diceBtn.classList.remove('dice-rolling');
+
+          const finalVal = Math.floor(Math.random() * 6) + 1;
+          state.diceValue = finalVal;
+          renderDiceSVG(finalVal);
+
+          const player = state.players[state.turn];
+          const movable = getMovablePawns(player, finalVal);
+
+          if (movable.length === 0) {
+            updateTurnUI(`Dadu ${finalVal}: Belum ada pion yang bisa jalan.`);
+            setTimeout(() => nextTurn(false), 1150);
+          } else if (movable.length === 1) {
+            state.movablePawnIds = [movable[0].id];
+            renderBoardOverlay();
+            updateTurnUI(`Dadu ${finalVal}! Pion melangkah...`);
+            setTimeout(() => executePawnMove(movable[0]), 320);
+          } else {
+            state.phase = 'SELECT_PAWN';
+            state.movablePawnIds = movable.map(p => p.id);
+            renderBoardOverlay();
+            updateTurnUI();
+          }
+        }
+      }, 65);
+    }
+
+    function handlePawnClick(pawnId) {
+      if (state.phase !== 'SELECT_PAWN') return;
+      if (!state.movablePawnIds.includes(pawnId)) return;
+      const player = state.players[state.turn];
+      const pawn = player.pawns.find(p => p.id === pawnId);
+      if (pawn) {
+        executePawnMove(pawn);
+      }
+    }
+
+    /*************************************************************************
+     * 9. STEP-BY-STEP PAWN MOVEMENT & TILE EVENTS
+     *************************************************************************/
+    function executePawnMove(pawn) {
+      state.phase = 'MOVING';
+      state.movablePawnIds = [];
+      state.activePawnId = pawn.id;
+
+      if (pawn.steps === -1) {
+        pawn.steps = 0;
+        playStepSound(0);
+        renderBoardOverlay();
+        setTimeout(() => onPawnLanded(pawn), 350);
+        return;
+      }
+
+      let stepsLeft = state.diceValue;
+      let stepCounter = 0;
+      const stepTimer = setInterval(() => {
+        pawn.steps++;
+        stepsLeft--;
+        playStepSound(stepCounter++);
+        renderBoardOverlay();
+
+        if (stepsLeft <= 0) {
+          clearInterval(stepTimer);
+          setTimeout(() => onPawnLanded(pawn), 260);
+        }
+      }, 210);
+    }
+
+    function onPawnLanded(pawn) {
+      const player = state.players[pawn.playerId];
+
+      if (pawn.steps === 56) {
+        player.score += 30;
+        playWinFanfare();
+        renderAll();
+        const allFinished = player.pawns.every(p => p.steps === 56);
+        if (allFinished) {
+          triggerVictory(player);
+          return;
+        }
+        updateTurnUI(`🎉 ${player.short} memasukkan pion ke Finish! (+30 Poin)`);
+        setTimeout(() => nextTurn(state.diceValue === 6), 1200);
+        return;
+      }
+
+      if (pawn.steps > 50) {
+        updateTurnUI(`${player.short} berada di lorong warna aman.`);
+        setTimeout(() => nextTurn(state.diceValue === 6), 800);
+        return;
+      }
+
+      const trackIdx = (player.startIdx + pawn.steps) % 52;
+      const category = getTrackCategory(trackIdx);
+
+      if (category !== 'safe') {
+        const kicked = checkAndKickOpponents(pawn, trackIdx);
+        if (kicked) {
+          playCaptureSound();
+          renderAll();
+        }
+      }
+
+      if (category === 'safe') {
+        updateTurnUI(`🛡️ ${player.short} istirahat di Petak Aman.`);
+        setTimeout(() => nextTurn(state.diceValue === 6), 850);
+      } else if (category === 'challenge') {
+        openChallengeModal(pawn);
+      } else {
+        openQuizModal(pawn, category);
+      }
+    }
+
+    function checkAndKickOpponents(activePawn, targetTrackIdx) {
+      let kickedSomeone = false;
+      state.players.forEach((otherPlayer, pIdx) => {
+        if (pIdx === activePawn.playerId) return;
+        otherPlayer.pawns.forEach(opPawn => {
+          if (opPawn.steps >= 0 && opPawn.steps <= 50) {
+            const opTrackIdx = (otherPlayer.startIdx + opPawn.steps) % 52;
+            if (opTrackIdx === targetTrackIdx) {
+              kickedSomeone = true;
+              if (config.mode === 'normal') {
+                opPawn.steps = -1;
+              } else {
+                opPawn.steps = Math.max(0, opPawn.steps - 3);
+              }
+            }
+          }
+        });
+      });
+      return kickedSomeone;
+    }
+
+    /*************************************************************************
+     * 10. QUIZ MODAL & ORAL CHALLENGE MODAL LOGIC
+     *************************************************************************/
+    function openQuizModal(pawn, category) {
+      state.phase = 'MODAL';
+      const pool = QUIZ_BANK[category] || QUIZ_BANK.hari;
+      let availableIndices = pool.map((_, i) => i).filter(i => !state.usedQuizKeys.has(`${category}-${i}`));
+      if (availableIndices.length === 0) {
+        pool.forEach((_, i) => state.usedQuizKeys.delete(`${category}-${i}`));
+        availableIndices = pool.map((_, i) => i);
+      }
+      const chosenIdx = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+      state.usedQuizKeys.add(`${category}-${chosenIdx}`);
+      const item = pool[chosenIdx];
+
+      state.currentQuiz = { ...item, category, pawn };
+
+      const catTitles = {
+        hari: { icon: '📅', label: 'Keterangan Waktu • Hari', bg: 'bg-sky-600' },
+        tanggal: { icon: '🗓️', label: 'Keterangan Waktu • Tanggal', bg: 'bg-blue-600' },
+        bulan: { icon: '📆', label: 'Keterangan Waktu • Bulan', bg: 'bg-indigo-600' },
+        kana: { icon: 'あ', label: 'Huruf Hiragana & Katakana Tunggal', bg: 'bg-purple-600' }
+      };
+      const meta = catTitles[category] || catTitles.hari;
+      const player = state.players[pawn.playerId];
+
+      const header = document.getElementById('quiz-header');
+      header.className = `px-5 py-3 ${meta.bg} text-white flex items-center justify-between`;
+      document.getElementById('quiz-cat-icon').textContent = meta.icon;
+      document.getElementById('quiz-cat-label').textContent = meta.label;
+      document.getElementById('quiz-player-label').textContent = `Giliran ${player.name}`;
+      document.getElementById('quiz-audio-btn').classList.add('hidden');
+
+      document.getElementById('quiz-question').textContent = item.q;
+      document.getElementById('quiz-subhint').textContent = item.hint;
+      document.getElementById('quiz-feedback').classList.add('hidden');
+
+      const optionsDiv = document.getElementById('quiz-options');
+      optionsDiv.innerHTML = item.opts.map((optText, idx) => `
+        <button type="button" onclick="submitQuizAnswer(${idx})" id="quiz-opt-${idx}"
+          class="quiz-opt-btn p-3.5 rounded-2xl border-2 border-slate-200 bg-white hover:border-sky-400 hover:bg-sky-50/50 text-slate-800 font-extrabold text-sm sm:text-base font-jp transition text-center shadow-sm active:scale-[0.98]">
+          ${optText}
+        </button>
+      `).join('');
+
+      document.getElementById('quiz-modal').classList.remove('hidden');
+    }
+
+    function submitQuizAnswer(selectedIdx) {
+      if (!state.currentQuiz || state.currentQuiz.answered) return;
+      state.currentQuiz.answered = true;
+
+      const { ans, exp, jpSpeech, pawn } = state.currentQuiz;
+      const isCorrect = selectedIdx === ans;
+      const player = state.players[pawn.playerId];
+
+      document.querySelectorAll('.quiz-opt-btn').forEach((btn, idx) => {
+        btn.disabled = true;
+        if (idx === ans) {
+          btn.className = "quiz-opt-btn p-3.5 rounded-2xl border-2 border-emerald-500 bg-emerald-100 text-emerald-950 font-extrabold text-sm sm:text-base font-jp shadow-sm";
+        } else if (idx === selectedIdx && !isCorrect) {
+          btn.className = "quiz-opt-btn p-3.5 rounded-2xl border-2 border-rose-500 bg-rose-100 text-rose-950 font-extrabold text-sm sm:text-base font-jp opacity-85";
+        } else {
+          btn.className = "quiz-opt-btn p-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 text-slate-400 font-bold text-sm sm:text-base font-jp";
+        }
+      });
+
+      const fbBox = document.getElementById('quiz-feedback');
+      const fbIcon = document.getElementById('quiz-fb-icon');
+      const fbTitle = document.getElementById('quiz-fb-title');
+      const fbDetail = document.getElementById('quiz-fb-detail');
+
+      if (isCorrect) {
+        player.score += 10;
+        playCorrectSound();
+        fbBox.className = "mt-3.5 p-3 rounded-2xl border border-emerald-300 bg-emerald-50 flex items-center justify-between gap-3";
+        fbIcon.textContent = "✅";
+        fbTitle.textContent = "Benar! Aman di petak (+10 Poin)";
+        fbTitle.className = "text-sm font-extrabold text-emerald-900";
+        fbDetail.textContent = exp;
+        fbDetail.className = "text-xs font-medium text-emerald-800 mt-0.5";
+      } else {
+        playWrongSound();
+        fbBox.className = "mt-3.5 p-3 rounded-2xl border border-rose-300 bg-rose-50 flex items-center justify-between gap-3";
+        fbIcon.textContent = "❌";
+        fbTitle.textContent = "Kurang Tepat! Pion mundur 1 langkah";
+        fbTitle.className = "text-sm font-extrabold text-rose-900";
+        fbDetail.textContent = exp;
+        fbDetail.className = "text-xs font-medium text-rose-800 mt-0.5";
+      }
+
+      state.currentQuiz.isCorrect = isCorrect;
+      fbBox.classList.remove('hidden');
+
+      if (jpSpeech) {
+        document.getElementById('quiz-audio-btn').classList.remove('hidden');
+        speakJapanese(jpSpeech);
+      }
+      renderPlayerCards();
+    }
+
+    function speakCurrentQuiz() {
+      if (state.currentQuiz && state.currentQuiz.jpSpeech) {
+        speakJapanese(state.currentQuiz.jpSpeech);
+      }
+    }
+
+    function closeQuizModal() {
+      document.getElementById('quiz-modal').classList.add('hidden');
+      const { pawn, isCorrect } = state.currentQuiz;
+      state.currentQuiz = null;
+
+      if (!isCorrect) {
+        movePawnBackwardOne(pawn, () => nextTurn(state.diceValue === 6));
+      } else {
+        nextTurn(state.diceValue === 6);
+      }
+    }
+
+    /* ORAL CHALLENGE MODAL & AUTO-RUNNING TIMER */
+    function resetChallengeTimer() {
+      clearInterval(challengeTimerInterval);
+      challengeSeconds = 30;
+      challengeTimerRunning = false;
+      updateTimerDisplay();
+    }
+
+    function updateTimerDisplay() {
+      const textEl = document.getElementById('challenge-timer-text');
+      const iconEl = document.getElementById('challenge-timer-icon');
+      const barEl = document.getElementById('challenge-timer-bar');
+      if (textEl) textEl.textContent = `${challengeSeconds}d`;
+      if (iconEl) iconEl.textContent = challengeTimerRunning ? '⏱️' : '⏸️';
+      if (barEl) {
+        const pct = Math.max(0, (challengeSeconds / 30) * 100);
+        barEl.style.width = `${pct}%`;
+        barEl.className = challengeSeconds <= 5
+          ? 'h-full bg-rose-600 transition-all duration-1000 ease-linear'
+          : 'h-full bg-emerald-500 transition-all duration-1000 ease-linear';
+      }
+    }
+
+    function startChallengeTimer() {
+      clearInterval(challengeTimerInterval);
+      if (challengeSeconds <= 0) challengeSeconds = 30;
+      challengeTimerRunning = true;
+      updateTimerDisplay();
+
+      challengeTimerInterval = setInterval(() => {
+        challengeSeconds--;
+        updateTimerDisplay();
+        if (challengeSeconds > 0 && challengeSeconds <= 5) {
+          playTimerTickSound(true);
+        }
+        if (challengeSeconds <= 0) {
+          clearInterval(challengeTimerInterval);
+          challengeTimerRunning = false;
+          updateTimerDisplay();
+          playWrongSound();
+        }
+      }, 1000);
+    }
+
+    function toggleChallengeTimer() {
+      if (challengeTimerRunning) {
+        clearInterval(challengeTimerInterval);
+        challengeTimerRunning = false;
+        updateTimerDisplay();
+      } else {
+        startChallengeTimer();
+      }
+    }
+
+    function openChallengeModal(pawn) {
+      state.phase = 'MODAL';
+      let avail = ORAL_CHALLENGES.map((_, i) => i).filter(i => !state.usedChallengeIdx.has(i));
+      if (avail.length === 0) {
+        state.usedChallengeIdx.clear();
+        avail = ORAL_CHALLENGES.map((_, i) => i);
+      }
+      const idx = avail[Math.floor(Math.random() * avail.length)];
+      state.usedChallengeIdx.add(idx);
+      const item = ORAL_CHALLENGES[idx];
+
+      state.currentChallengePawn = pawn;
+      const player = state.players[pawn.playerId];
+      document.getElementById('challenge-player-label').textContent = `Giliran ${player.name}`;
+      document.getElementById('challenge-text').textContent = item.text;
+      document.getElementById('challenge-clue').textContent = item.clue;
+
+      document.getElementById('challenge-modal').classList.remove('hidden');
+      resetChallengeTimer();
+      startChallengeTimer();
+    }
+
+    function resolveChallenge(success) {
+      clearInterval(challengeTimerInterval);
+      challengeTimerRunning = false;
+      document.getElementById('challenge-modal').classList.add('hidden');
+      const pawn = state.currentChallengePawn;
+      const player = state.players[pawn.playerId];
+
+      if (success) {
+        player.score += 15;
+        playCorrectSound();
+        renderPlayerCards();
+        updateTurnUI(`✅ Tantangan Lisan Berhasil! (+15 Poin)`);
+        setTimeout(() => nextTurn(state.diceValue === 6), 850);
+      } else {
+        playWrongSound();
+        movePawnBackwardOne(pawn, () => nextTurn(state.diceValue === 6));
+      }
+    }
+
+    function movePawnBackwardOne(pawn, callback) {
+      if (pawn.steps > 0) {
+        pawn.steps -= 1;
+        playBackSound();
+        renderBoardOverlay();
+        updateTurnUI(`⬅️ Pion ${state.players[pawn.playerId].short} mundur 1 langkah.`);
+      }
+      setTimeout(callback, 650);
+    }
+
+    /*************************************************************************
+     * 11. TURN ROTATION, VICTORY PODIUM & UTILITY MODALS
+     *************************************************************************/
+    function nextTurn(bonusRoll) {
+      if (bonusRoll) {
+        state.phase = 'ROLL';
+        updateTurnUI(`🎲 Dadu 6! ${state.players[state.turn].name} lempar dadu lagi!`);
+        renderAll();
+        return;
+      }
+
+      state.turn = (state.turn + 1) % config.playerCount;
+      state.phase = 'ROLL';
+      state.movablePawnIds = [];
+      renderAll();
+      updateTurnUI();
+    }
+
+    function triggerVictory(winnerPlayer) {
+      state.phase = 'VICTORY';
+      const sorted = [...state.players].sort((a, b) => {
+        const aFin = a.pawns.filter(p => p.steps === 56).length;
+        const bFin = b.pawns.filter(p => p.steps === 56).length;
+        if (bFin !== aFin) return bFin - aFin;
+        return b.score - a.score;
+      });
+
+      const medals = ['🥇 Juara 1', '🥈 Juara 2', '🥉 Juara 3', '🎖️ Peringkat 4'];
+      const podiumHtml = sorted.map((pl, idx) => `
+        <div class="flex items-center justify-between p-3 rounded-2xl border ${idx === 0 ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200'}">
+          <div class="flex items-center gap-2.5">
+            <span class="text-sm font-extrabold">${medals[idx] || ''}</span>
+            <span class="w-3.5 h-3.5 rounded-full" style="background:${pl.color}"></span>
+            <span class="text-sm font-extrabold text-slate-800">${pl.name}</span>
+          </div>
+          <span class="text-xs font-extrabold px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-slate-700">${pl.score} Poin</span>
+        </div>
+      `).join('');
+
+      document.getElementById('winner-subtitle').textContent = `${winnerPlayer.name} Menang! おめでとうございます！`;
+      document.getElementById('podium-list').innerHTML = podiumHtml;
+      document.getElementById('victory-modal').classList.remove('hidden');
+    }
+
+    function openRulesModal() {
+      document.getElementById('rules-modal').classList.remove('hidden');
+    }
+    function closeRulesModal() {
+      document.getElementById('rules-modal').classList.add('hidden');
+    }
+    function openResetModal() {
+      document.getElementById('reset-modal').classList.remove('hidden');
+    }
+    function closeResetModal() {
+      document.getElementById('reset-modal').classList.add('hidden');
+    }
+    function confirmResetGame() {
+      clearInterval(challengeTimerInterval);
+      challengeTimerRunning = false;
+      closeResetModal();
+      document.getElementById('victory-modal').classList.add('hidden');
+      document.getElementById('quiz-modal').classList.add('hidden');
+      document.getElementById('challenge-modal').classList.add('hidden');
+      document.getElementById('setup-screen').classList.remove('hidden');
+    }
+
+    window.onload = function () {
+      drawBoardSVG();
+      renderDiceSVG(6);
+    };
+  </script>
+</body>
+</html>
